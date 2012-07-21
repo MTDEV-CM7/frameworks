@@ -110,7 +110,7 @@ class PowerManagerService extends IPowerManager.Stub
     private static final int LONG_DIM_TIME = 7000;              // t+N-5 sec
 
     // How long to wait to debounce light sensor changes.
-    private static final int LIGHT_SENSOR_DELAY = 2000;
+    private static final int LIGHT_SENSOR_DELAY = 0001;
     private static final int PROXIMITY_SENSOR_DELAY = 1000;
 
     // trigger proximity if distance is less than 5 cm
