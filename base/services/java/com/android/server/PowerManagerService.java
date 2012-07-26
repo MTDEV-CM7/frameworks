@@ -1981,7 +1981,7 @@ class PowerManagerService extends IPowerManager.Stub
 //                        mScreenOffTime = SystemClock.elapsedRealtime();
 //                        mAlwaysOnAndDimmed = true;
 		    } 
-//                    brightness = mScreenDim;
+                    brightness = mScreenDim;
                 }
             }
             long identity = Binder.clearCallingIdentity();
