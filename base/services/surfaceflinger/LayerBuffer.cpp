@@ -708,9 +708,6 @@ LayerBuffer::OverlaySource::OverlaySource(LayerBuffer& layer,
     *overlayRef = new OverlayRef(mOverlayHandle, channel,
             mWidth, mHeight, mFormat, mWidthStride, mHeightStride);
     getFlinger()->signalEvent();
-    const DisplayHardware& hw(getFlinger()->
-                               graphicPlane(0).displayHardware());
-    hw.videoOverlayStarted(true);
 }
 
 #ifdef OMAP_ENHANCEMENT
@@ -776,9 +773,6 @@ LayerBuffer::OverlaySource::~OverlaySource()
     if (mOverlay && mOverlayDevice) {
         overlay_control_device_t* overlay_dev = mOverlayDevice;
         overlay_dev->destroyOverlay(overlay_dev, mOverlay);
-    const DisplayHardware& hw(getFlinger()->
-                               graphicPlane(0).displayHardware());
-    hw.videoOverlayStarted(false);
 #ifdef OMAP_ENHANCEMENT
         mOverlay = 0;
 #endif
@@ -888,9 +882,6 @@ void LayerBuffer::OverlaySource::destroy()
         overlay_control_device_t* overlay_dev = mOverlayDevice;
         overlay_dev->destroyOverlay(overlay_dev, mOverlay);
         mOverlay = 0;
-        const DisplayHardware& hw(getFlinger()->
-                                   graphicPlane(0).displayHardware());
-        hw.videoOverlayStarted(false);
     }
 }
 

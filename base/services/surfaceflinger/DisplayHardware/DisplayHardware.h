@@ -33,7 +33,6 @@
 
 #include "DisplayHardware/DisplayHardwareBase.h"
 
-
 struct overlay_control_device_t;
 struct framebuffer_device_t;
 struct copybit_image_t;
@@ -41,7 +40,6 @@ struct copybit_image_t;
 namespace android {
 
 class FramebufferNativeWindow;
-class HWComposer;
 
 class DisplayHardware : public DisplayHardwareBase
 {
@@ -79,18 +77,11 @@ public:
     void        makeCurrent() const;
     uint32_t    getMaxTextureSize() const;
     uint32_t    getMaxViewportDims() const;
-    void        orientationChanged(int orientation) const;
-    void        setActionSafeWidthRatio(float asWidthRatio) const;
-    void        setActionSafeHeightRatio(float asHeightRatio) const;
-    void        videoOverlayStarted(bool started) const;
 
     uint32_t getPageFlipCount() const;
     EGLDisplay getEGLDisplay() const { return mDisplay; }
     overlay_control_device_t* getOverlayEngine() const { return mOverlayEngine; }
     
-    // Hardware Composer
-    HWComposer& getHwComposer() const;
-
     status_t compositionComplete() const;
     
     Rect bounds() const {
@@ -104,7 +95,6 @@ private:
     void init(uint32_t displayIndex) __attribute__((noinline));
     void fini() __attribute__((noinline));
 
-    sp<SurfaceFlinger> mFlinger;
     EGLDisplay      mDisplay;
     EGLSurface      mSurface;
     EGLContext      mContext;
@@ -121,8 +111,6 @@ private:
     GLint           mMaxViewportDims;
     GLint           mMaxTextureSize;
     
-    HWComposer*     mHwc;
-
     sp<FramebufferNativeWindow> mNativeWindow;
     overlay_control_device_t* mOverlayEngine;
 };

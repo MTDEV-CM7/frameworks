@@ -544,22 +544,6 @@ status_t SurfaceComposerClient::setFreezeTint(SurfaceID id, uint32_t tint)
     return NO_ERROR;
 }
 
-void SurfaceComposerClient::enableHDMIOutput(int enable)
-{
-    sp<ISurfaceComposer> sm(getComposerService());
-    return sm->enableHDMIOutput(enable);
-}
-
-void SurfaceComposerClient::setActionSafeWidthRatio(float asWidthRatio){
-    sp<ISurfaceComposer> sm(getComposerService());
-    return sm->setActionSafeWidthRatio(asWidthRatio);
-}
-
-void SurfaceComposerClient::setActionSafeHeightRatio(float asHeightRatio){
-    sp<ISurfaceComposer> sm(getComposerService());
-    return sm->setActionSafeHeightRatio(asHeightRatio);
-}
-
 // ----------------------------------------------------------------------------
 
 ScreenshotClient::ScreenshotClient()

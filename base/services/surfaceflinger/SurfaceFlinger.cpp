@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <linux/fb.h>
 #include <sys/ioctl.h>
 
 #include <cutils/log.h>
@@ -53,7 +54,6 @@
 #include "SurfaceFlinger.h"
 
 #include "DisplayHardware/DisplayHardware.h"
-#include "DisplayHardware/HWComposer.h"
 
 /* ideally AID_GRAPHICS would be in a semi-public header
  * or there would be a way to map a user/group name to its id
@@ -87,7 +87,6 @@ SurfaceFlinger::SurfaceFlinger()
         mReadFramebuffer("android.permission.READ_FRAME_BUFFER"),
         mDump("android.permission.DUMP"),
         mVisibleRegionsDirty(false),
-        mHwWorkListDirty(false),
         mDeferReleaseConsole(false),
         mFreezeDisplay(false),
         mElectronBeamAnimationMode(0),
@@ -95,7 +94,6 @@ SurfaceFlinger::SurfaceFlinger()
         mFreezeDisplayTime(0),
         mDebugRegion(0),
         mDebugBackground(0),
-        mDebugDisableHWC(0),
         mRenderEffect(0),
         mRenderColorR(0),
         mRenderColorG(0),
@@ -108,8 +106,7 @@ SurfaceFlinger::SurfaceFlinger()
         mConsoleSignals(0),
         mSecureFrameBuffer(0),
         mUseDithering(true),
-        mUse16bppAlpha(false),
-        mHDMIOutput(false)
+        mUse16bppAlpha(false)
 {
     init();
 }
@@ -404,12 +401,6 @@ bool SurfaceFlinger::threadLoop()
         handleConsoleEvents();
     }
 
-    //Serializes HDMI event handling and drawing.
-    //Necessary for race-free overlay channel management.
-    //Must always be held only after handleConsoleEvents() since
-    //that could enable / disable HDMI based on suspend resume
-    Mutex::Autolock _l(mHDMILock);
-
     if (LIKELY(mTransactionCount == 0)) {
         // if we're in a global transaction, don't do anything.
         const uint32_t mask = eTransactionNeeded | eTraversalNeeded;
@@ -421,11 +412,6 @@ bool SurfaceFlinger::threadLoop()
 
     // post surfaces (if needed)
     handlePageFlip();
-
-    if (UNLIKELY(mHwWorkListDirty)) {
-        // build the h/w work list
-        handleWorkList();
-    }
 
     const DisplayHardware& hw(graphicPlane(0).displayHardware());
     if (LIKELY(hw.canDraw() && !isFrozen())) {
@@ -479,14 +465,7 @@ void SurfaceFlinger::postFramebuffer()
     if (!mInvalidRegion.isEmpty()) {
         const DisplayHardware& hw(graphicPlane(0).displayHardware());
         const nsecs_t now = systemTime();
-        const GraphicPlane& plane(graphicPlane(0));
-        const Transform& planeTransform(plane.transform());
         mDebugInSwapBuffers = now;
-        //If orientation has changed, inform gralloc for HDMI mirroring
-        if(mOrientationChanged) {
-            mOrientationChanged = false;
-            hw.orientationChanged(planeTransform.getOrientation());
-        }
         hw.flip(mInvalidRegion);
         mLastSwapBufferTime = systemTime() - now;
         mDebugInSwapBuffers = 0;
@@ -502,7 +481,6 @@ void SurfaceFlinger::handleConsoleEvents()
     int what = android_atomic_and(0, &mConsoleSignals);
     if (what & eConsoleAcquired) {
         hw.acquireScreen();
-        updateHwcHDMI(mHDMIOutput);
         // this is a temporary work-around, eventually this should be called
         // by the power-manager
         SurfaceFlinger::turnElectronBeamOn(mElectronBeamAnimationMode);
@@ -517,7 +495,6 @@ void SurfaceFlinger::handleConsoleEvents()
     if (what & eConsoleReleased) {
         if (hw.isScreenAcquired()) {
             hw.releaseScreen();
-            updateHwcHDMI(false);
         } else {
             mDeferReleaseConsole = true;
         }
@@ -584,7 +561,6 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
             const uint32_t type = mCurrentState.orientationType;
             GraphicPlane& plane(graphicPlane(dpy));
             plane.setOrientation(orientation);
-            mOrientationChanged = true;
 
             // update the shared control block
             const DisplayHardware& hw(plane.displayHardware());
@@ -887,25 +863,6 @@ void SurfaceFlinger::unlockPageFlip(const LayerVector& currentLayers)
     for (size_t i=0 ; i<count ; i++) {
         const sp<LayerBase>& layer(layers[i]);
         layer->unlockPageFlip(planeTransform, mDirtyRegion);
-    }
-}
-
-void SurfaceFlinger::handleWorkList()
-{
-    mHwWorkListDirty = false;
-    HWComposer& hwc(graphicPlane(0).displayHardware().getHwComposer());
-    if (hwc.initCheck() == NO_ERROR) {
-        const Vector< sp<LayerBase> >& currentLayers(mVisibleLayersSortedByZ);
-        const size_t count = currentLayers.size();
-        hwc.createWorkList(count);
-        hwc_layer_t* const cur(hwc.getLayers());
-        for (size_t i=0 ; cur && i<count ; i++) {
-            currentLayers[i]->setGeometry(&cur[i]);
-            if (mDebugDisableHWC || mDebugRegion) {
-                cur[i].compositionType = HWC_FRAMEBUFFER;
-                cur[i].flags |= HWC_SKIP_LAYER;
-            }
-        }
     }
 }
 
@@ -1275,41 +1232,7 @@ int SurfaceFlinger::setOrientation(DisplayID dpy,
             orientation = BAD_VALUE;
         }
     }
-    const DisplayHardware& hw(graphicPlane(0).displayHardware());
-    hw.orientationChanged(orientation);
     return orientation;
-}
-
-void SurfaceFlinger::invalidateHwcGeometry()
-{
-    mHwWorkListDirty = true;
-}
-
-void SurfaceFlinger::updateHwcHDMI(bool enable)
-{
-    invalidateHwcGeometry();
-    const DisplayHardware& hw(graphicPlane(0).displayHardware());
-    HWComposer& hwc(hw.getHwComposer());
-    hwc.enableHDMIOutput(enable);
-}
-
-void SurfaceFlinger::enableHDMIOutput(int enable)
-{
-	LOGI("SurfaceFlinger: HDMI Output enabled");
-    Mutex::Autolock _l(mHDMILock);
-    mHDMIOutput = enable;
-    updateHwcHDMI(enable);
-    signalEvent();
-}
-
-void SurfaceFlinger::setActionSafeWidthRatio(float asWidthRatio){
-    const DisplayHardware& hw(graphicPlane(0).displayHardware());
-    hw.setActionSafeWidthRatio(asWidthRatio);
-}
-
-void SurfaceFlinger::setActionSafeHeightRatio(float asHeightRatio){
-    const DisplayHardware& hw(graphicPlane(0).displayHardware());
-    hw.setActionSafeHeightRatio(asHeightRatio);
 }
 
 sp<ISurface> SurfaceFlinger::createSurface(const sp<Client>& client, int pid,
@@ -1617,19 +1540,7 @@ status_t SurfaceFlinger::dump(int fd, const Vector<String16>& args)
                     inTransactionDuration/1000.0);
             result.append(buffer);
         }
-        /*
-         * Dump HWComposer state
-         */
-        HWComposer& hwc(hw.getHwComposer());
-        snprintf(buffer, SIZE, " h/w composer %s and %s\n",
-                hwc.initCheck()==NO_ERROR ? "present" : "not present",
-                (mDebugDisableHWC || mDebugRegion) ? "disabled" : "enabled");
-        result.append(buffer);
-        hwc.dump(result, buffer, SIZE, mVisibleLayersSortedByZ);
 
-        /*
-         * Dump gralloc state
-         */
         const GraphicBufferAllocator& alloc(GraphicBufferAllocator::get());
         alloc.dump(result);
 
@@ -1700,7 +1611,6 @@ status_t SurfaceFlinger::onTransact(
             case 1002:  // SHOW_UPDATES
                 n = data.readInt32();
                 mDebugRegion = n ? n : (mDebugRegion ? 0 : 1);
-                invalidateHwcGeometry();
                 return NO_ERROR;
             case 1003:  // SHOW_BACKGROUND
                 n = data.readInt32();
@@ -1725,12 +1635,6 @@ status_t SurfaceFlinger::onTransact(
             case 1007: // set mFreezeCount
                 mFreezeCount = data.readInt32();
                 mFreezeDisplayTime = 0;
-                return NO_ERROR;
-            case 1008: // toggle use of hw composer
-                n = data.readInt32();
-                mDebugDisableHWC = n ? 1 : 0;
-                invalidateHwcGeometry();
-                repaintEverything();
                 return NO_ERROR;
             case 1010:  // interrogate.
                 reply->writeInt32(0);
@@ -1767,26 +1671,13 @@ status_t SurfaceFlinger::onTransact(
     return err;
 }
 
-void SurfaceFlinger::repaintEverything() {
-    //const DisplayHardware& hw(graphicPlane(0).displayHardware());
-    //const Rect bounds(hw.getBounds());
-    //setInvalidateRegion(Region(bounds));
-    signalEvent();
-}
-
-void SurfaceFlinger::setInvalidateRegion(const Region& reg) {
-    //Mutex::Autolock _l(mInvalidateLock);
-    //mInvalidateRegion = reg;
-}
-
-
 // ---------------------------------------------------------------------------
 
 status_t SurfaceFlinger::renderScreenToTextureLocked(DisplayID dpy,
         GLuint* textureName, GLfloat* uOut, GLfloat* vOut)
 {
     if (!GLExtensions::getInstance().haveFramebufferObject())
-        return INVALID_OPERATION;
+        return directRenderScreenToTextureLocked(dpy, textureName, uOut, vOut);
 
     // get screen geometry
     const DisplayHardware& hw(graphicPlane(dpy).displayHardware());
@@ -1840,6 +1731,144 @@ status_t SurfaceFlinger::renderScreenToTextureLocked(DisplayID dpy,
 }
 
 // ---------------------------------------------------------------------------
+
+status_t SurfaceFlinger::directRenderScreenToTextureLocked(DisplayID dpy,
+        GLuint* textureName, GLfloat* uOut, GLfloat* vOut)
+{
+    status_t result;
+    const DisplayHardware& hw(graphicPlane(dpy).displayHardware());
+
+    // use device framebuffer in /dev/graphics/fb0
+    size_t offset;
+    uint32_t bytespp, format, gl_format, gl_type;
+    size_t size = 0;
+    struct fb_var_screeninfo vinfo;
+    const char* fbpath = "/dev/graphics/fb0";
+    int fb = open(fbpath, O_RDONLY);
+    void const* mapbase = MAP_FAILED;
+    ssize_t mapsize = -1;
+
+    if (fb < 0) {
+        LOGE("Failed to open framebuffer");
+        return INVALID_OPERATION;
+    }
+
+    if (ioctl(fb, FBIOGET_VSCREENINFO, &vinfo) < 0) {
+        LOGE("Failed to get framebuffer info");
+        close(fb);
+        return INVALID_OPERATION;
+    }
+
+    bytespp = vinfo.bits_per_pixel / 8;
+    const uint32_t hw_w = vinfo.xres;
+    const uint32_t hw_h = vinfo.yres;
+
+    switch (bytespp) {
+        case 2:
+            format = PIXEL_FORMAT_RGB_565;
+            gl_format = GL_RGB;
+            gl_type = GL_UNSIGNED_SHORT_5_6_5;
+            break;
+        case 4:
+            format = PIXEL_FORMAT_RGBX_8888;
+            gl_format = GL_RGBA;
+            gl_type = GL_UNSIGNED_BYTE;
+            break;
+        default:
+            close(fb);
+            LOGE("Failed to detect framebuffer bytespp");
+            return INVALID_OPERATION;
+            break;
+    }
+
+    offset = (vinfo.xoffset + vinfo.yoffset * vinfo.xres) * bytespp;
+    size = vinfo.xres * vinfo.yres * bytespp;
+
+    mapsize = offset + size;
+    mapbase = mmap(0, mapsize, PROT_READ, MAP_PRIVATE, fb, 0);
+    close(fb);
+    if (mapbase == MAP_FAILED) {
+        return INVALID_OPERATION;
+    }
+
+    void const* fbbase = (void *)((char const *)mapbase + offset);
+    GLfloat u = 1;
+    GLfloat v = 1;
+
+    // build texture
+    GLuint tname;
+    glGenTextures(1, &tname);
+    glBindTexture(GL_TEXTURE_2D, tname);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_format,
+            hw_w, hw_h, 0, gl_format, GL_UNSIGNED_BYTE, 0);
+    if (glGetError() != GL_NO_ERROR) {
+        while ( glGetError() != GL_NO_ERROR ) ;
+        GLint tw = (2 << (31 - clz(hw_w)));
+        GLint th = (2 << (31 - clz(hw_h)));
+        glTexImage2D(GL_TEXTURE_2D, 0, gl_format,
+                tw, th, 0, gl_format, GL_UNSIGNED_BYTE, 0);
+        u = GLfloat(hw_w) / tw;
+        v = GLfloat(hw_h) / th;
+    }
+
+    // write fb data to image buffer texture (reverse order)
+    GLubyte* imageData = (GLubyte*)malloc(size);
+    if (imageData) {
+        void *ptr = imageData;
+        uint32_t rowlen = hw_w * bytespp;
+        offset = size;
+        for (uint32_t j = hw_h; j > 0; j--) {
+            offset -= rowlen;
+            memcpy(ptr, fbbase + offset, rowlen);
+            ptr += rowlen;
+        }
+
+        // write image buffer to the texture
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // copy imageData to the texture
+        glTexImage2D(GL_TEXTURE_2D, 0, gl_format, hw_w, hw_h, 0,
+                gl_format, gl_type, imageData);
+
+        LOGI("direct Framebuffer texture for gl_format=%d gl_type=%d", gl_format, gl_type);
+        result = NO_ERROR;
+    } else {
+        result = NO_MEMORY;
+    }
+
+    // redraw the screen entirely...
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0,0,0,1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_SCISSOR_TEST);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    const Vector< sp<LayerBase> >& layers(mVisibleLayersSortedByZ);
+    const size_t count = layers.size();
+    for (size_t i=0 ; i<count ; ++i) {
+        const sp<LayerBase>& layer(layers[i]);
+        layer->drawForSreenShot();
+    }
+
+    hw.compositionComplete();
+
+    // done
+    munmap((void *)mapbase, mapsize);
+
+    *textureName = tname;
+    *uOut = u;
+    *vOut = v;
+
+    // free buffer memory
+    if (imageData) {
+        free(imageData);
+    }
+
+    return result;
+}
+
 
 #ifndef ELECTRONBEAM_FRAMES
  #define ELECTRONBEAM_FRAMES 12
@@ -2244,6 +2273,118 @@ status_t SurfaceFlinger::turnElectronBeamOn(int32_t mode)
 
 // ---------------------------------------------------------------------------
 
+status_t SurfaceFlinger::directCaptureScreenImplLocked(DisplayID dpy,
+        sp<IMemoryHeap>* heap,
+        uint32_t* w, uint32_t* h, PixelFormat* f,
+        uint32_t sw, uint32_t sh)
+{
+    status_t result = PERMISSION_DENIED;
+
+    uint32_t width, height, format;
+    uint32_t bytespp;
+    void const* mapbase = MAP_FAILED;
+    ssize_t mapsize = -1;
+
+    struct fb_var_screeninfo vinfo;
+    const char* fbpath = "/dev/graphics/fb0";
+
+    // only one display supported for now
+    if (UNLIKELY(uint32_t(dpy) >= DISPLAY_COUNT))
+        return BAD_VALUE;
+
+    // get screen geometry
+    const DisplayHardware& hw(graphicPlane(dpy).displayHardware());
+    const uint32_t hw_w = hw.getWidth();
+    const uint32_t hw_h = hw.getHeight();
+
+    if ((sw > hw_w) || (sh > hw_h))
+        return BAD_VALUE;
+
+    sw = (!sw) ? hw_w : sw;
+    sh = (!sh) ? hw_h : sh;
+
+    int fb = open(fbpath, O_RDONLY);
+    if (fb < 0) {
+        LOGE("Failed to open framebuffer");
+        return INVALID_OPERATION;
+    }
+
+    if (ioctl(fb, FBIOGET_VSCREENINFO, &vinfo) < 0) {
+        LOGE("Failed to get framebuffer info");
+        close(fb);
+        return INVALID_OPERATION;
+    }
+
+    bytespp = vinfo.bits_per_pixel / 8;
+    switch (bytespp) {
+        case 2:
+            format = PIXEL_FORMAT_RGB_565;
+            break;
+        case 4:
+            format = PIXEL_FORMAT_RGBX_8888;
+            break;
+        default:
+            close(fb);
+            LOGE("Failed to detect framebuffer bytespp");
+            return INVALID_OPERATION;
+            break;
+    }
+
+    size_t offset = (vinfo.xoffset + vinfo.yoffset * vinfo.xres) * bytespp;
+    size_t size = vinfo.xres * vinfo.yres * bytespp;
+    mapsize = offset + size;
+    mapbase = mmap(0, mapsize, PROT_READ, MAP_PRIVATE, fb, 0);
+    close(fb);
+    if (mapbase == MAP_FAILED) {
+        return INVALID_OPERATION;
+    }
+
+    width = vinfo.xres;
+    height = vinfo.yres;
+    void const* fbbase = (void *)((char const *)mapbase + offset);
+
+    const LayerVector& layers(mDrawingState.layersSortedByZ);
+    const size_t count = layers.size();
+    for (size_t i=0 ; i<count ; ++i) {
+        const sp<LayerBase>& layer(layers[i]);
+        const uint32_t flags = layer->drawingState().flags;
+    }
+
+    // allocate shared memory large enough to hold the
+    // screen capture
+    size = sw * sh * bytespp;
+    sp<MemoryHeapBase> heapBase(
+            new MemoryHeapBase(size, 0, "screen-capture") );
+    void* ptr = heapBase->getBase();
+
+    if (ptr) {
+        if ((sw == hw_w) && (sh == hw_h)) {
+            memcpy(ptr, fbbase, size);
+        } else {
+            uint32_t rowlen = hw_w * bytespp;
+            uint32_t collen = sw * bytespp;
+            size_t offset = 0;
+            for (uint32_t j = 0; j < sh; j++) {
+                memcpy(ptr, fbbase + offset, collen);
+                ptr += collen;
+                offset += rowlen;
+            }
+        }
+        *heap = heapBase;
+        *w = sw;
+        *h = sh;
+        *f = format;
+        result = NO_ERROR;
+    } else {
+        result = NO_MEMORY;
+    }
+    munmap((void *)mapbase, mapsize);
+
+    hw.compositionComplete();
+
+    return result;
+}
+
 status_t SurfaceFlinger::captureScreenImplLocked(DisplayID dpy,
         sp<IMemoryHeap>* heap,
         uint32_t* w, uint32_t* h, PixelFormat* f,
@@ -2256,7 +2397,8 @@ status_t SurfaceFlinger::captureScreenImplLocked(DisplayID dpy,
         return BAD_VALUE;
 
     if (!GLExtensions::getInstance().haveFramebufferObject())
-        return INVALID_OPERATION;
+        return directCaptureScreenImplLocked(dpy,
+                heap, w, h, f, sw, sh);
 
     // get screen geometry
     const DisplayHardware& hw(graphicPlane(dpy).displayHardware());
@@ -2363,9 +2505,6 @@ status_t SurfaceFlinger::captureScreen(DisplayID dpy,
     // only one display supported for now
     if (UNLIKELY(uint32_t(dpy) >= DISPLAY_COUNT))
         return BAD_VALUE;
-
-    if (!GLExtensions::getInstance().haveFramebufferObject())
-        return INVALID_OPERATION;
 
     class MessageCaptureScreen : public MessageBase {
         SurfaceFlinger* flinger;

@@ -239,7 +239,6 @@ public class AudioSystem
     public static final int DEVICE_OUT_SPEAKER = 0x2;
     public static final int DEVICE_OUT_WIRED_HEADSET = 0x4;
     public static final int DEVICE_OUT_WIRED_HEADPHONE = 0x8;
-    public static final int DEVICE_OUT_AUX_HDMI = 0x800;
     public static final int DEVICE_OUT_BLUETOOTH_SCO = 0x10;
     public static final int DEVICE_OUT_BLUETOOTH_SCO_HEADSET = 0x20;
     public static final int DEVICE_OUT_BLUETOOTH_SCO_CARKIT = 0x40;
@@ -247,7 +246,7 @@ public class AudioSystem
     public static final int DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES = 0x100;
     public static final int DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER = 0x200;
     public static final int DEVICE_OUT_AUX_DIGITAL = 0x400;
-    public static final int DEVICE_OUT_FM = 0x900;
+    public static final int DEVICE_OUT_FM = 0x800;
     public static final int DEVICE_OUT_DEFAULT = 0x8000;
     // input devices
     public static final int DEVICE_IN_COMMUNICATION = 0x10000;
@@ -262,7 +261,7 @@ public class AudioSystem
     public static final int DEVICe_IN_FM_RXA2DP = 0x2000000;
     public static final int DEVICE_IN_DEFAULT = 0x80000000;
     // For OMAP
-    public static final int DEVICE_OUT_FM_TRANSMIT = 0x900;
+    public static final int DEVICE_OUT_FM_TRANSMIT = 0x800;
     public static final int DEVICE_IN_FM_ANALOG = 0x1000000;
     public static final int DEVICE_OUT_LOW_POWER = 0x1000;
 

@@ -130,9 +130,7 @@ public class AudioService extends IAudioService.Stub {
      */
     private static final String ACTION_FM_PLUG = "android.intent.action.FM_PLUG";
     private static final String ACTION_FMTX_PLUG = "android.intent.action.FMTX_PLUG";
-    //private static final String ACTION_HDMI_PLUG = "android.intent.action.HDMI_PLUG";
-    private static final String ACTION_HDMI_PLUG = "HDMI_CONNECTED";
-    private static final String ACTION_HDMI_UNPLUG = "HDMI_DISCONNECTED";
+    private static final String ACTION_HDMI_PLUG = "android.intent.action.HDMI_PLUG";
     private static final String POWER_MODE = "omap.audio.power";
     private static final String MAIN_MIC_CHOICE = "omap.audio.mic.main";
     private static final String SUB_MIC_CHOICE = "omap.audio.mic.sub";
@@ -336,9 +334,6 @@ public class AudioService extends IAudioService.Stub {
             intentFilter.addAction(SUB_MIC_CHOICE);
         }
 
-        intentFilter.addAction(ACTION_HDMI_PLUG);
-        intentFilter.addAction(ACTION_HDMI_UNPLUG);
-        intentFilter.addCategory(Intent.CATEGORY_DEFAULT);
         intentFilter.addAction(BluetoothA2dp.ACTION_SINK_STATE_CHANGED);
         intentFilter.addAction(BluetoothHeadset.ACTION_STATE_CHANGED);
         intentFilter.addAction(Intent.ACTION_DOCK_EVENT);
@@ -2023,38 +2018,21 @@ public class AudioService extends IAudioService.Stub {
                                 "");
                     }
                 }
-            } else if (action.equals(ACTION_HDMI_PLUG)) 
-            {
-            	Log.v(TAG,"HDMI connected");
+            } else if (SystemProperties.OMAP_ENHANCEMENT && action.equals(ACTION_HDMI_PLUG)) {
+                int state = intent.getIntExtra("state", 0);
+                boolean isConnected = mConnectedDevices.containsKey(AudioSystem.DEVICE_OUT_AUX_DIGITAL);
 
-                //int state = intent.getIntExtra("state", 0);
-                //boolean isConnected = mConnectedDevices.containsKey(AudioSystem.DEVICE_OUT_AUX_DIGITAL);
-
-                
-                AudioSystem.setDeviceConnectionState(AudioSystem.DEVICE_OUT_AUX_HDMI, AudioSystem.DEVICE_STATE_AVAILABLE, "");
-                mConnectedDevices.put( new Integer(AudioSystem.DEVICE_OUT_AUX_HDMI), "");
-                
-                /*if (state == 0 && isConnected) {
-                	Log.v(TAG,". State = 0 and isConnected = true " );
+                if (state == 0 && isConnected) {
                     AudioSystem.setDeviceConnectionState(AudioSystem.DEVICE_OUT_AUX_DIGITAL,
                             AudioSystem.DEVICE_STATE_UNAVAILABLE,
                             "");
                     mConnectedDevices.remove(AudioSystem.DEVICE_OUT_AUX_DIGITAL);
                 } else if (state == 1 && !isConnected)  {
-                	Log.v(TAG,". State = 1 and isConnected = false " );
                     AudioSystem.setDeviceConnectionState(AudioSystem.DEVICE_OUT_AUX_DIGITAL,
                             AudioSystem.DEVICE_STATE_AVAILABLE,
                             "");
                     mConnectedDevices.put( new Integer(AudioSystem.DEVICE_OUT_AUX_DIGITAL), "");
-                }*/
-            } else if (action.equals(ACTION_HDMI_UNPLUG))
-            {
-            	Log.v(TAG,"HDMI disconnected");
-            	
-                AudioSystem.setDeviceConnectionState(AudioSystem.DEVICE_OUT_AUX_HDMI, AudioSystem.DEVICE_STATE_UNAVAILABLE,  "");
-                
-                mConnectedDevices.remove(AudioSystem.DEVICE_OUT_AUX_HDMI);
-                
+                }
             } else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
                 int state = intent.getIntExtra(BluetoothHeadset.EXTRA_AUDIO_STATE,
                                                BluetoothHeadset.STATE_ERROR);

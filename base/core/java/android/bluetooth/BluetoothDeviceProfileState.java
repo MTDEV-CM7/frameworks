@@ -82,7 +82,7 @@ public final class BluetoothDeviceProfileState extends HierarchicalStateMachine 
     private static final int CONNECTION_ACCESS_REQUEST_REPLY = 104;
     private static final int CONNECTION_ACCESS_REQUEST_EXPIRY = 105;
 
-    private static final int AUTO_CONNECT_DELAY = 1000; // 1 sec
+    private static final int AUTO_CONNECT_DELAY = 1000; // 1 secs
     private static final int CONNECT_OTHER_PROFILES_DELAY = 4000; // 4 secs
     private static final int CONNECT_OTHER_PROFILES_DELAY_FAST = 100; // 100ms
     private static final int CONNECTION_ACCESS_REQUEST_EXPIRY_TIMEOUT = 7000; // 7 secs

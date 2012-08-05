@@ -277,14 +277,14 @@ public:
         DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER = 0x200,
         DEVICE_OUT_AUX_DIGITAL = 0x400,
 #ifdef HAVE_FM_RADIO
-        DEVICE_OUT_FM = 0x900,
+        DEVICE_OUT_FM = 0x800,
         DEVICE_OUT_FM_SPEAKER = 0x1000,
         DEVICE_OUT_FM_ALL = (DEVICE_OUT_FM | DEVICE_OUT_FM_SPEAKER),
 #elif defined(OMAP_ENHANCEMENT)
-        DEVICE_OUT_FM_TRANSMIT = 0x900,
+        DEVICE_OUT_FM_TRANSMIT = 0x800,
         DEVICE_OUT_LOW_POWER = 0x1000,
 #endif
-        DEVICE_OUT_HDMI = 0x800,
+        DEVICE_OUT_HDMI = 0x2000,
         DEVICE_OUT_DEFAULT = 0x8000,
         DEVICE_OUT_ALL = (DEVICE_OUT_EARPIECE | DEVICE_OUT_SPEAKER | DEVICE_OUT_WIRED_HEADSET |
 #ifdef HAVE_FM_RADIO
@@ -456,6 +456,9 @@ public:
     static bool isInputChannel(uint32_t channel);
     static bool isValidFormat(uint32_t format);
     static bool isLinearPCM(uint32_t format);
+#ifdef USES_SAMSUNG_SEPARATED_STREAM
+    static bool isSeperatedStream(stream_type stream);
+#endif
 
 private:
 

@@ -148,7 +148,7 @@ class ServerThread extends Thread {
         BluetoothHidService bluetoothHid = null;
         BluetoothNetworkService bluetoothNetwork = null;
         HeadsetObserver headset = null;
-        //HDMIObserver hdmi = null;
+        HDMIObserver hdmi = null;
         DockObserver dock = null;
         UsbService usb = null;
         UiModeManagerService uiMode = null;
@@ -444,21 +444,13 @@ class ServerThread extends Thread {
                 Slog.e(TAG, "Failure starting RingerSwitchObserver", e);
             }
 
-      	    try {
-                Slog.i(TAG, "HDMI Service");
-                ServiceManager.addService("hdmi", new HDMIService(context));
+            try {
+                Slog.i(TAG, "HDMI Observer");
+                // Listen for hdmi changes
+                hdmi = new HDMIObserver(context);
             } catch (Throwable e) {
-                Slog.e(TAG, "Failure starting HDMI Service ", e);
-
+                Slog.e(TAG, "Failure starting HDMIObserver", e);
             }
-
-            //try {
-            //    Slog.i(TAG, "HDMI Observer");
-            //    // Listen for hdmi changes
-            //    hdmi = new HDMIObserver(context);
-            //} catch (Throwable e) {
-            //    Slog.e(TAG, "Failure starting HDMIObserver", e);
-            //}
 
             try {
                 Slog.i(TAG, "Dock Observer");
@@ -555,10 +547,9 @@ class ServerThread extends Thread {
                     }
                 }
             }
+
             if (SystemProperties.OMAP_ENHANCEMENT ) {
-            	Slog.i(TAG, "UiCloningService HDMI OMAP IS TRUE");
                 if(SystemProperties.getBoolean("tv.hdmi.uicloning.enable", false)) {
-                	Slog.i(TAG, "UiCloningService HDMI tv.hdmi.uicloning.enable test passed");
                     try {
                         Slog.i(TAG, "UiCloningService");
                         uiCloning = new UiCloningService(context);

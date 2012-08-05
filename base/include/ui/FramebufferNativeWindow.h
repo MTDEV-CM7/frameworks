@@ -62,26 +62,7 @@ public:
 
 
     framebuffer_device_t const * getDevice() const { return fbDev; } 
-    void orientationChanged(int orientation) {
-                                if (fbDev->orientationChanged)
-                                    fbDev->orientationChanged(fbDev, orientation);
-                              }
-    void setActionSafeWidthRatio(float asWidthRatio)
-    {
-    	if (fbDev->setActionSafeWidthRatio)
-    		fbDev->setActionSafeWidthRatio(fbDev, asWidthRatio);
-    }
-    void setActionSafeHeightRatio(float asHeightRatio)
-    {
-    	if (fbDev->setActionSafeHeightRatio)
-    		fbDev->setActionSafeHeightRatio(fbDev, asHeightRatio);
 
-    }
-    void videoOverlayStarted(bool started)
-                              {
-                                if (fbDev->videoOverlayStarted)
-                                    fbDev->videoOverlayStarted(fbDev, started);
-                              }
     bool isUpdateOnDemand() const { return mUpdateOnDemand; }
     status_t setUpdateRectangle(const Rect& updateRect);
     status_t compositionComplete();

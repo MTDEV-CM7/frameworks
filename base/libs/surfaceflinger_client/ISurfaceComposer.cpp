@@ -166,27 +166,6 @@ public:
         data.writeInterfaceToken(ISurfaceComposer::getInterfaceDescriptor());
         remote()->transact(BnSurfaceComposer::SIGNAL, data, &reply, IBinder::FLAG_ONEWAY);
     }
-    virtual void enableHDMIOutput(int enable)
-    {
-    	Parcel data, reply;
-    	data.writeInterfaceToken(ISurfaceComposer::getInterfaceDescriptor());
-    	data.writeInt32(enable);
-    	remote()->transact(BnSurfaceComposer::ENABLE_HDMI_OUTPUT, data, &reply);
-    }
-    virtual void setActionSafeWidthRatio(float asWidthRatio)
-    {
-    	Parcel data, reply;
-    	data.writeInterfaceToken(ISurfaceComposer::getInterfaceDescriptor());
-    	data.writeFloat(asWidthRatio);
-    	remote()->transact(BnSurfaceComposer::SET_ACTIONSAFE_WIDTH_RATIO, data, &reply);
-    }
-    virtual void setActionSafeHeightRatio(float asHeightRatio)
-    {
-    	Parcel data, reply;
-    	data.writeInterfaceToken(ISurfaceComposer::getInterfaceDescriptor());
-    	data.writeFloat(asHeightRatio);
-    	remote()->transact(BnSurfaceComposer::SET_ACTIONSAFE_HEIGHT_RATIO, data, &reply);
-    }
 };
 
 IMPLEMENT_META_INTERFACE(SurfaceComposer, "android.ui.ISurfaceComposer");
@@ -274,21 +253,6 @@ status_t BnSurfaceComposer::onTransact(
             int32_t mode = data.readInt32();
             status_t res = turnElectronBeamOn(mode);
             reply->writeInt32(res);
-        } break;
-        case ENABLE_HDMI_OUTPUT: {
-        	CHECK_INTERFACE(ISurfaceComposer, data, reply);
-        	int enable = data.readInt32();
-        	enableHDMIOutput(enable);
-        } break;
-        case SET_ACTIONSAFE_WIDTH_RATIO: {
-        	CHECK_INTERFACE(ISurfaceComposer, data, reply);
-        	float asWidthRatio = data.readFloat();
-        	setActionSafeWidthRatio(asWidthRatio);
-        } break;
-        case SET_ACTIONSAFE_HEIGHT_RATIO: {
-        	CHECK_INTERFACE(ISurfaceComposer, data, reply);
-        	float asHeightRatio = data.readFloat();
-        	setActionSafeHeightRatio(asHeightRatio);
         } break;
         default:
             return BBinder::onTransact(code, data, reply, flags);
