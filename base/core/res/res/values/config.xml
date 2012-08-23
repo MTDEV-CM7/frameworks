@@ -75,7 +75,7 @@
 
     <!-- The duration (in milliseconds) that the radio will scan for a signal
          when there's no network connection. If the scan doesn't timeout, use zero -->
-    <integer name="config_radioScanningTimeout">0</integer>
+    <integer name="config_radioScanningTimeout">10000</integer>
 
     <!-- A product with no SD card == not removable. -->
     <bool name="config_externalStorageRemovable" product="nosdcard">false</bool>
