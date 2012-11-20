@@ -38,7 +38,7 @@
             android:layout_width="0dip"
             android:layout_weight="1"
             android:layout_height="match_parent"
-            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
             android:paddingLeft="6dip"
             android:gravity="center_vertical"
             android:orientation="horizontal"/>  
@@ -46,10 +46,18 @@
         <LinearLayout android:id="@+id/statusIcons"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_alignParentRight="true"
+            android:layout_centerInParent="true"
             android:paddingRight="1dip"
             android:gravity="center_vertical"
             android:orientation="horizontal"/>    
+
+        <com.android.systemui.statusbar.Clock
+            android:textAppearance="@*android:style/TextAppearance.StatusBar.Icon"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:singleLine="true"
+            android:paddingRight="6dip"
+            android:gravity="center_vertical|right"/>
 
         <com.android.systemui.statusbar.CmSignalText
             android:textAppearance="@*android:style/TextAppearance.StatusBar.Icon"
@@ -74,15 +82,7 @@
             android:layout_height="match_parent"
             android:gravity="center_vertical"
             android:orientation="horizontal"/>
-
-        <com.android.systemui.statusbar.Clock
-            android:textAppearance="@*android:style/TextAppearance.StatusBar.Icon"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:singleLine="true"
-            android:paddingRight="6dip"
-            android:gravity="center_vertical|left"
-            />
+           
 
         <!-- The following are button layouts for tablet style statusbar buttons
              Visibility is handled in config.xml by setting config_statusbar_buttons = "true" -->
